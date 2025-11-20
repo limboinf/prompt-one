@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class LangChainClient:
-    def __init__(self, model_name: str = None, temperature: float = 0.7):
+    def __init__(self, model_name: str | None = None, temperature: float = 0.7):
         self.model_name = model_name or settings.DEFAULT_MODEL_NAME
         self.temperature = temperature
         self._init_llm()
@@ -34,4 +34,18 @@ class LangChainClient:
             return response.content
         except Exception as e:
             logger.error(f"LLM Invoke Error: {e}")
+            raise e
+
+    def stream(self, input_data: str | list[BaseMessage]):
+        try:
+            if isinstance(input_data, str):
+                messages = [HumanMessage(content=input_data)]
+            else:
+                messages = input_data
+                
+            for chunk in self.llm.stream(messages):
+                if chunk.content:
+                    yield chunk.content
+        except Exception as e:
+            logger.error(f"LLM Stream Error: {e}")
             raise e

@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 class Settings(BaseSettings):
     # Database
@@ -10,8 +9,8 @@ class Settings(BaseSettings):
     DB_NAME: str = "prompt_manager"
     
     # LLM
-    OPENAI_API_KEY: Optional[str] = None
-    OPENAI_API_BASE: Optional[str] = None
+    OPENAI_API_KEY: str | None = None
+    OPENAI_API_BASE: str | None = None
     DEFAULT_MODEL_NAME: str = "gpt-3.5-turbo"
 
     @property

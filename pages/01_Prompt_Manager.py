@@ -1,7 +1,7 @@
 import streamlit as st
 import json
 import pandas as pd
-from jinja2 import Environment, meta
+from app.services.meta_generator import generate_variables_meta
 from app.ui.common import init_page, get_prompt_service
 
 init_page("Prompt Manager")
@@ -36,14 +36,30 @@ def list_prompts_view(service):
 
 def create_prompt_view(service):
     st.subheader("Create New Prompt")
+    
+    # Initialize defaults in session state if not present
+    if "create_prompt_template" not in st.session_state:
+        st.session_state.create_prompt_template = "Hello {{ name }}!"
+    if "create_prompt_meta" not in st.session_state:
+        st.session_state.create_prompt_meta = '{\n  "type": "object",\n  "properties": {\n    "name": {\n      "type": "string"\n    }\n  }\n}'
+    
     with st.form("create_prompt_form"):
-        name = st.text_input("Unique Name (e.g. chat_summary)")
-        display_name = st.text_input("Display Name")
-        description = st.text_area("Description")
-        template = st.text_area("Template (Jinja2)", height=200, value="Hello {{ name }}!")
-        variables_meta_str = st.text_area("Variables Meta (JSON)", value='[{"name": "name", "type": "string", "required": true}]', help="List of variable definitions")
+        name = st.text_input("Unique Name (e.g. chat_summary)", key="create_prompt_name")
+        display_name = st.text_input("Display Name", key="create_prompt_display_name")
+        description = st.text_area("Description", key="create_prompt_description")
+        template = st.text_area("Template (Jinja2)", height=200, key="create_prompt_template")
         
-        submitted = st.form_submit_button("Create Prompt")
+        if st.form_submit_button("Generate Variables Meta"):
+            try:
+                meta_json_str = generate_variables_meta(st.session_state.create_prompt_template)
+                st.session_state.create_prompt_meta = meta_json_str
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error generating meta: {e}")
+
+        variables_meta_str = st.text_area("Variables Meta (JSON)", height=200, key="create_prompt_meta", help="JSON Schema definition of variables")
+        
+        submitted = st.form_submit_button("Create Prompt", type="primary")
         if submitted:
             if not name or not template:
                 st.error("Name and Template are required.")
@@ -52,6 +68,11 @@ def create_prompt_view(service):
                     variables_meta = json.loads(variables_meta_str)
                     service.create_prompt(name, display_name, description, template, variables_meta)
                     st.success(f"Prompt {name} created!")
+                    # Clear session state
+                    keys_to_clear = ["create_prompt_name", "create_prompt_display_name", "create_prompt_description", "create_prompt_template", "create_prompt_meta"]
+                    for k in keys_to_clear:
+                        if k in st.session_state:
+                            del st.session_state[k]
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
@@ -69,71 +90,51 @@ def prompt_details_view(service, prompt_name):
 
     st.write(f"**Display Name:** {prompt.display_name}")
     st.write(f"**Description:** {prompt.description}")
+    st.write(f"**Version:** {prompt.version}")
+    st.write(f"**Last Updated:** {prompt.updated_at}")
     
     st.divider()
-    
-    st.write("### Versions")
-    versions = service.get_versions(prompt_name)
-    
-    v_data = []
-    latest_ver = None
-    for v in versions:
-        if v.is_latest:
-            latest_ver = v
-        v_data.append({
-            "Version": v.version,
-            "Latest": "✅" if v.is_latest else "",
-            "Created At": v.created_at.strftime("%Y-%m-%d %H:%M"),
-            "Comment": v.comment
-        })
-    st.table(pd.DataFrame(v_data))
-
-    st.divider()
-    st.write("### Create New Version")
+    st.write("### Edit Prompt")
     
     # Initialize form state if switching prompts
     if st.session_state.get("current_prompt_name_view") != prompt_name:
         st.session_state.current_prompt_name_view = prompt_name
-        st.session_state.nv_version = ""
-        st.session_state.nv_comment = ""
-        st.session_state.nv_template = latest_ver.template if latest_ver else ""
-        st.session_state.nv_meta = json.dumps(latest_ver.variables_meta, indent=2) if latest_ver and latest_ver.variables_meta else "[]"
+        st.session_state.edit_version = prompt.version
+        st.session_state.edit_comment = prompt.comment or ""
+        st.session_state.edit_template = prompt.template
+        st.session_state.edit_meta = json.dumps(prompt.variables_meta, indent=2) if prompt.variables_meta else "{}"
     
-    with st.form("new_version_form"):
+    with st.form("edit_prompt_form"):
         col1, col2 = st.columns(2)
         with col1:
-            new_version_str = st.text_input("New Version (e.g. v2)", key="nv_version")
+            new_version = st.text_input("Version (e.g. v2)", key="edit_version")
         with col2:
-            comment = st.text_input("Comment", key="nv_comment")
+            comment = st.text_input("Comment", key="edit_comment")
             
-        new_template = st.text_area("Template", height=300, key="nv_template")
+        new_template = st.text_area("Template", height=300, key="edit_template")
         
         # Button to generate meta from template
         if st.form_submit_button("Generate Variables Meta"):
             try:
-                env = Environment()
-                ast = env.parse(st.session_state.nv_template)
-                variables = meta.find_undeclared_variables(ast)
-                
-                meta_list = []
-                for var in variables:
-                    meta_list.append({
-                        "name": var,
-                        "type": "string",
-                        "required": True
-                    })
-                st.session_state.nv_meta = json.dumps(meta_list, indent=2)
+                meta_json_str = generate_variables_meta(st.session_state.edit_template)
+                st.session_state.edit_meta = meta_json_str
                 st.rerun()
             except Exception as e:
                 st.error(f"Error generating meta: {e}")
 
-        new_meta_str = st.text_area("Variables Meta (JSON)", height=150, key="nv_meta")
+        new_meta_str = st.text_area("Variables Meta (JSON)", height=150, key="edit_meta")
         
-        if st.form_submit_button("Publish New Version"):
+        if st.form_submit_button("Update Prompt", type="primary"):
             try:
-                meta_json = json.loads(st.session_state.nv_meta)
-                service.create_new_version(prompt_name, st.session_state.nv_template, meta_json, st.session_state.nv_version, st.session_state.nv_comment)
-                st.success("Version created!")
+                meta_json = json.loads(st.session_state.edit_meta)
+                service.update_prompt(
+                    prompt_name, 
+                    st.session_state.edit_template, 
+                    meta_json, 
+                    st.session_state.edit_version, 
+                    st.session_state.edit_comment
+                )
+                st.success("Prompt updated!")
                 # Clear state to force reload or just rerun
                 del st.session_state.current_prompt_name_view
                 st.rerun()
