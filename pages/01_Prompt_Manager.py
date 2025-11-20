@@ -131,60 +131,6 @@ def prompt_details_view(service, prompt_name, prompt_version, view_mode=False):
     st.write(f"**Description:** {prompt.description}")
     st.write(f"**Version:** {prompt.version}")
     st.write(f"**Last Updated:** {prompt.updated_at}")
-<<<<<<< HEAD
-    
-    st.divider()
-    st.write("### Edit Prompt")
-    
-    # Initialize form state if switching prompts
-    if st.session_state.get("current_prompt_name_view") != prompt_name:
-        st.session_state.current_prompt_name_view = prompt_name
-        st.session_state.original_version = prompt.version  # Store original version
-        st.session_state.edit_version = prompt.version
-        st.session_state.edit_comment = prompt.comment or ""
-        st.session_state.edit_template = prompt.template
-        st.session_state.edit_meta = json.dumps(prompt.variables_meta, indent=2) if prompt.variables_meta else "{}"
-    
-    with st.form("edit_prompt_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            new_version = st.text_input("Version (e.g. v2)", key="edit_version")
-        with col2:
-            comment = st.text_input("Comment", key="edit_comment")
-            
-        new_template = st.text_area("Template", height=300, key="edit_template")
-        
-        # Button to generate meta from template
-        if st.form_submit_button("Generate Variables Meta"):
-            try:
-                meta_json_str = generate_variables_meta(st.session_state.edit_template)
-                st.session_state.edit_meta = meta_json_str
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error generating meta: {e}")
-
-        new_meta_str = st.text_area("Variables Meta (JSON)", height=150, key="edit_meta")
-        
-        if st.form_submit_button("Update Prompt", type="primary"):
-            try:
-                meta_json = json.loads(st.session_state.edit_meta)
-                original_version = st.session_state.get("original_version", prompt.version)
-                new_version = st.session_state.edit_version
-
-                # Check if version changed
-                if original_version != new_version:
-                    # Create new version
-                    service.create_new_version(
-                        prompt_name,
-                        st.session_state.edit_template,
-                        meta_json,
-                        new_version,
-                        st.session_state.edit_comment
-                    )
-                    st.success(f"New version '{new_version}' created!")
-                else:
-                    # Update existing version
-=======
     st.write(f"**Created By:** {prompt.created_by}")
     st.write(f"**Comment:** {prompt.comment or '-'}")
 
@@ -237,25 +183,10 @@ def prompt_details_view(service, prompt_name, prompt_version, view_mode=False):
             if st.form_submit_button("Update Prompt", type="primary"):
                 try:
                     meta_json = json.loads(st.session_state.edit_meta)
->>>>>>> origin/claude/prompt-manager-improvements-019pXtAy9QUJZu8teZEMqCZQ
                     service.update_prompt(
                         prompt_name,
                         st.session_state.edit_template,
                         meta_json,
-<<<<<<< HEAD
-                        new_version,
-                        st.session_state.edit_comment
-                    )
-                    st.success("Prompt updated!")
-
-                # Clear state to force reload
-                del st.session_state.current_prompt_name_view
-                if "original_version" in st.session_state:
-                    del st.session_state.original_version
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
-=======
                         st.session_state.edit_version,
                         st.session_state.edit_comment
                     )
@@ -265,7 +196,6 @@ def prompt_details_view(service, prompt_name, prompt_version, view_mode=False):
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
->>>>>>> origin/claude/prompt-manager-improvements-019pXtAy9QUJZu8teZEMqCZQ
 
 # Main Logic
 service = get_prompt_service()
