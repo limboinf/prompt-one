@@ -368,12 +368,11 @@ try:
                 if conflict_map:
                     st.warning(f"检测到 {len(conflict_map)} 个变量名冲突，已自动重命名为 _left 和 _right 后缀")
 
-                with st.form("comparison_variables"):
+                with st.form("variables_form"):
                     input_values = render_variable_form(merged_meta)
                     submitted = st.form_submit_button("更新变量", use_container_width=True)
 
                     if submitted:
-                        st.session_state.comparison_variables = input_values
                         # 渲染两个Prompt
                         try:
                             # 分发变量
@@ -395,6 +394,8 @@ try:
                                 st.session_state.right_prompt_version,
                                 right_vars
                             )
+                            # Update comparison_variables after successful rendering
+                            st.session_state.comparison_variables = input_values
                             st.success("变量已更新，系统提示词已渲染")
                         except Exception as e:
                             st.error(f"渲染错误: {e}")
