@@ -99,6 +99,7 @@ def prompt_details_view(service, prompt_name):
     # Initialize form state if switching prompts
     if st.session_state.get("current_prompt_name_view") != prompt_name:
         st.session_state.current_prompt_name_view = prompt_name
+        st.session_state.original_version = prompt.version  # Store original version
         st.session_state.edit_version = prompt.version
         st.session_state.edit_comment = prompt.comment or ""
         st.session_state.edit_template = prompt.template
@@ -127,16 +128,35 @@ def prompt_details_view(service, prompt_name):
         if st.form_submit_button("Update Prompt", type="primary"):
             try:
                 meta_json = json.loads(st.session_state.edit_meta)
-                service.update_prompt(
-                    prompt_name, 
-                    st.session_state.edit_template, 
-                    meta_json, 
-                    st.session_state.edit_version, 
-                    st.session_state.edit_comment
-                )
-                st.success("Prompt updated!")
-                # Clear state to force reload or just rerun
+                original_version = st.session_state.get("original_version", prompt.version)
+                new_version = st.session_state.edit_version
+
+                # Check if version changed
+                if original_version != new_version:
+                    # Create new version
+                    service.create_new_version(
+                        prompt_name,
+                        st.session_state.edit_template,
+                        meta_json,
+                        new_version,
+                        st.session_state.edit_comment
+                    )
+                    st.success(f"New version '{new_version}' created!")
+                else:
+                    # Update existing version
+                    service.update_prompt(
+                        prompt_name,
+                        st.session_state.edit_template,
+                        meta_json,
+                        new_version,
+                        st.session_state.edit_comment
+                    )
+                    st.success("Prompt updated!")
+
+                # Clear state to force reload
                 del st.session_state.current_prompt_name_view
+                if "original_version" in st.session_state:
+                    del st.session_state.original_version
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
