@@ -99,7 +99,7 @@ try:
                     st.subheader("Preview")
                     if submitted or not variables_meta:
                         try:
-                            rendered = render_service.render(selected_name, input_values)
+                            rendered = render_service.render_by_version(selected_name, selected_version, input_values)
 
                             tab1, tab2 = st.tabs(["Rendered Markdown", "Source Template"])
 
