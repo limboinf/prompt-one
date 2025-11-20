@@ -6,7 +6,7 @@ from app.llm.langchain_client import LangChainClient
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from config.settings import settings
 
-init_page("提示词效果对比")
+init_page("Prompt Comparison")
 
 prompt_service = get_prompt_service()
 render_service = get_render_service()
@@ -111,7 +111,7 @@ def merge_variables_meta(left_meta, right_meta):
             # 类型冲突，重命名
             left_name = f"{name}_left"
             merged_properties[left_name] = schema.copy()
-            merged_properties[left_name]["description"] = f"[左侧] {schema.get('description', name)}"
+            merged_properties[left_name]["description"] = f"[Left] {schema.get('description', name)}"
             conflict_map[name] = {'left': left_name}
 
     # 处理右侧变量
@@ -123,7 +123,7 @@ def merge_variables_meta(left_meta, right_meta):
             # 已经在冲突处理中，添加右侧重命名版本
             right_name = f"{name}_right"
             merged_properties[right_name] = schema.copy()
-            merged_properties[right_name]["description"] = f"[右侧] {schema.get('description', name)}"
+            merged_properties[right_name]["description"] = f"[Right] {schema.get('description', name)}"
             conflict_map[name]['right'] = right_name
         # 类型相同的情况已经在左侧处理过了，跳过
 
@@ -187,7 +187,7 @@ def render_variable_form(merged_meta):
     input_values = {}
 
     if not merged_meta or not merged_meta.get("properties"):
-        st.info("没有需要配置的变量")
+        st.info("No variables to configure")
         return input_values
 
     properties = merged_meta.get("properties", {})
@@ -218,11 +218,11 @@ def render_variable_form(merged_meta):
             input_values[name] = st.checkbox(label, value=val, help=desc)
         elif m_type in ["array", "object"]:
             default_val = json.dumps(default, indent=2) if default else ("[]" if m_type == "array" else "{}")
-            json_str = st.text_area(f"{label} (JSON)", value=default_val, help=f"{desc} (输入有效的JSON)")
+            json_str = st.text_area(f"{label} (JSON)", value=default_val, help=f"{desc} (Enter valid JSON)")
             try:
                 input_values[name] = json.loads(json_str)
             except:
-                st.error(f"无效的JSON格式: {name}")
+                st.error(f"Invalid JSON format: {name}")
                 input_values[name] = default_val
         else:
             input_values[name] = st.text_input(label, value=str(default) if default else "", help=desc)
@@ -240,7 +240,7 @@ def render_chat_panel(
     st.markdown(f"### {title}")
 
     if show_system_prompt and rendered_prompt:
-        with st.expander("系统提示词", expanded=False):
+        with st.expander("System Prompt", expanded=False):
             st.info(rendered_prompt)
 
     # 显示聊天历史
@@ -251,7 +251,7 @@ def render_chat_panel(
                 if "timestamp" in msg:
                     st.caption(f"🕒 {msg['timestamp']}")
     else:
-        st.info("暂无对话")
+        st.info("No conversation yet")
 
 
 try:
@@ -259,13 +259,13 @@ try:
     init_comparison_session_state()
 
     # ==================== 顶部配置区 ====================
-    st.subheader("⚙️ 对比配置")
+    st.subheader("⚙️ Comparison Configuration")
 
     # 第一行：选择提示词名称
-    st.markdown("#### 选择要对比的提示词")
+    st.markdown("#### Select Prompts to Compare")
     prompt_names = prompt_service.list_prompt_names()
     selected_name = st.selectbox(
-        "提示词名称",
+        "Prompt Name",
         [""] + prompt_names,
         key="prompt_name_select"
     )
@@ -276,7 +276,7 @@ try:
         versions = prompt_service.list_versions_by_name(selected_name)
 
         if len(versions) < 2:
-            st.warning(f"提示词 '{selected_name}' 只有 {len(versions)} 个版本，至少需要 2 个版本才能进行对比。")
+            st.warning(f"Prompt '{selected_name}' has only {len(versions)} version(s). At least 2 versions are required for comparison.")
         else:
             st.divider()
 
@@ -284,10 +284,10 @@ try:
             col_left_config, col_right_config = st.columns(2)
 
             with col_left_config:
-                st.markdown("#### 📝 优化前")
+                st.markdown("#### 📝 Before Optimization")
                 version_options = [f"{v.version} ({v.comment or 'No comment'})" for v in versions]
                 left_version_idx = st.selectbox(
-                    "选择版本",
+                    "Select Version",
                     range(len(versions)),
                     format_func=lambda i: version_options[i],
                     key="left_version_select"
@@ -295,12 +295,12 @@ try:
 
                 if left_version_idx is not None:
                     st.session_state.left_prompt_version = versions[left_version_idx].version
-                    st.caption(f"创建时间: {versions[left_version_idx].created_at.strftime('%Y-%m-%d %H:%M:%S')}")
-                    st.caption(f"创建者: {versions[left_version_idx].created_by}")
+                    st.caption(f"Created At: {versions[left_version_idx].created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                    st.caption(f"Created By: {versions[left_version_idx].created_by}")
 
-                with st.expander("模型设置", expanded=False):
+                with st.expander("Model Settings", expanded=False):
                     st.session_state.left_model_name = st.text_input(
-                        "模型名称",
+                        "Model Name",
                         value=st.session_state.left_model_name,
                         key="left_model"
                     )
@@ -313,9 +313,9 @@ try:
                     )
 
             with col_right_config:
-                st.markdown("#### ✨ 优化后")
+                st.markdown("#### ✨ After Optimization")
                 right_version_idx = st.selectbox(
-                    "选择版本",
+                    "Select Version",
                     range(len(versions)),
                     format_func=lambda i: version_options[i],
                     key="right_version_select",
@@ -324,12 +324,12 @@ try:
 
                 if right_version_idx is not None:
                     st.session_state.right_prompt_version = versions[right_version_idx].version
-                    st.caption(f"创建时间: {versions[right_version_idx].created_at.strftime('%Y-%m-%d %H:%M:%S')}")
-                    st.caption(f"创建者: {versions[right_version_idx].created_by}")
+                    st.caption(f"Created At: {versions[right_version_idx].created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                    st.caption(f"Created By: {versions[right_version_idx].created_by}")
 
-                with st.expander("模型设置", expanded=False):
+                with st.expander("Model Settings", expanded=False):
                     st.session_state.right_model_name = st.text_input(
-                        "模型名称",
+                        "Model Name",
                         value=st.session_state.right_model_name,
                         key="right_model"
                     )
@@ -364,13 +364,13 @@ try:
                 right_prompt.variables_meta
             )
 
-            with st.expander("🎛️ 变量配置", expanded=True):
+            with st.expander("🎛️ Variable Configuration", expanded=True):
                 if conflict_map:
-                    st.warning(f"检测到 {len(conflict_map)} 个变量名冲突，已自动重命名为 _left 和 _right 后缀")
+                    st.warning(f"Detected {len(conflict_map)} variable name conflict(s). Automatically renamed with _left and _right suffixes.")
 
                 with st.form("variables_form"):
                     input_values = render_variable_form(merged_meta)
-                    submitted = st.form_submit_button("更新变量", use_container_width=True)
+                    submitted = st.form_submit_button("Update Variables", use_container_width=True)
 
                     if submitted:
                         # 渲染两个Prompt
@@ -396,9 +396,9 @@ try:
                             )
                             # Update comparison_variables after successful rendering
                             st.session_state.comparison_variables = input_values
-                            st.success("变量已更新，系统提示词已渲染")
+                            st.success("Variables updated. System prompts rendered successfully.")
                         except Exception as e:
-                            st.error(f"渲染错误: {e}")
+                            st.error(f"Rendering error: {e}")
 
             st.divider()
 
@@ -407,14 +407,14 @@ try:
 
             with col_left:
                 render_chat_panel(
-                    "📝 优化前",
+                    "📝 Before Optimization",
                     st.session_state.left_chat_history,
                     st.session_state.left_rendered_prompt
                 )
 
             with col_right:
                 render_chat_panel(
-                    "✨ 优化后",
+                    "✨ After Optimization",
                     st.session_state.right_chat_history,
                     st.session_state.right_rendered_prompt
                 )
@@ -424,15 +424,15 @@ try:
 
             col_reset, col_spacer = st.columns([1, 3])
             with col_reset:
-                if st.button("🔄 重置对话", use_container_width=True):
+                if st.button("🔄 Reset Conversation", use_container_width=True):
                     st.session_state.left_chat_history = []
                     st.session_state.right_chat_history = []
                     st.rerun()
 
             # 聊天输入
-            if user_input := st.chat_input("输入消息进行对比测试... (Shift+Enter换行)"):
+            if user_input := st.chat_input("Enter message for comparison testing... (Shift+Enter for newline)"):
                 if not st.session_state.left_rendered_prompt or not st.session_state.right_rendered_prompt:
-                    st.error("请先配置变量并更新系统提示词")
+                    st.error("Please configure variables and update system prompts first.")
                 else:
                     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -478,7 +478,7 @@ try:
                                     "timestamp": response_time
                                 })
                             except Exception as e:
-                                st.error(f"调用失败: {e}")
+                                st.error(f"Call failed: {e}")
                                 # 如果LLM调用失败，移除刚添加的用户消息
                                 if st.session_state.left_chat_history and st.session_state.left_chat_history[-1]["role"] == "user":
                                     st.session_state.left_chat_history.pop()
@@ -516,14 +516,14 @@ try:
                                     "timestamp": response_time
                                 })
                             except Exception as e:
-                                st.error(f"调用失败: {e}")
+                                st.error(f"Call failed: {e}")
                                 # 如果LLM调用失败，移除刚添加的用户消息
                                 if st.session_state.right_chat_history and st.session_state.right_chat_history[-1]["role"] == "user":
                                     st.session_state.right_chat_history.pop()
         else:
-            st.error("无法加载选中的Prompt版本")
+            st.error("Unable to load selected prompt versions")
     else:
-        st.info("👆 请先在上方选择要对比的提示词及其版本")
+        st.info("👆 Please select a prompt and its versions for comparison above")
 
 finally:
     prompt_service.db.close()
