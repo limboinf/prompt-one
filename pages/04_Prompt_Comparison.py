@@ -14,11 +14,13 @@ render_service = get_render_service()
 
 def init_comparison_session_state():
     """初始化对比页面的session state"""
-    # Prompt选择
-    if 'left_prompt_name' not in st.session_state:
-        st.session_state.left_prompt_name = ""
-    if 'right_prompt_name' not in st.session_state:
-        st.session_state.right_prompt_name = ""
+    # Prompt选择 - 现在分别存储 name 和 version
+    if 'selected_prompt_name' not in st.session_state:
+        st.session_state.selected_prompt_name = ""
+    if 'left_prompt_version' not in st.session_state:
+        st.session_state.left_prompt_version = ""
+    if 'right_prompt_version' not in st.session_state:
+        st.session_state.right_prompt_version = ""
 
     # 模型配置
     if 'left_model_name' not in st.session_state:
@@ -259,72 +261,101 @@ try:
     # ==================== 顶部配置区 ====================
     st.subheader("⚙️ 对比配置")
 
-    col_left_config, col_right_config = st.columns(2)
+    # 第一行：选择提示词名称
+    st.markdown("#### 选择要对比的提示词")
+    prompt_names = prompt_service.list_prompt_names()
+    selected_name = st.selectbox(
+        "提示词名称",
+        [""] + prompt_names,
+        key="prompt_name_select"
+    )
 
-    with col_left_config:
-        st.markdown("#### 📝 优化前")
-        prompts = prompt_service.list_prompts()
-        prompt_names = [p.name for p in prompts]
-        left_selected = st.selectbox(
-            "选择Prompt",
-            [""] + prompt_names,
-            key="left_prompt_select"
-        )
+    if selected_name:
+        st.session_state.selected_prompt_name = selected_name
+        # 获取该名称下的所有版本
+        versions = prompt_service.list_versions_by_name(selected_name)
 
-        if left_selected:
-            st.session_state.left_prompt_name = left_selected
-            left_prompt = prompt_service.get_prompt_details(left_selected)
-            if left_prompt:
-                st.caption(f"版本: {left_prompt.version}")
+        if len(versions) < 2:
+            st.warning(f"提示词 '{selected_name}' 只有 {len(versions)} 个版本，至少需要 2 个版本才能进行对比。")
+        else:
+            st.divider()
 
-        with st.expander("模型设置", expanded=False):
-            st.session_state.left_model_name = st.text_input(
-                "模型名称",
-                value=st.session_state.left_model_name,
-                key="left_model"
-            )
-            st.session_state.left_temperature = st.slider(
-                "Temperature",
-                0.0, 2.0,
-                st.session_state.left_temperature,
-                0.1,
-                key="left_temp"
-            )
+            # 第二行：选择左右两个版本
+            col_left_config, col_right_config = st.columns(2)
 
-    with col_right_config:
-        st.markdown("#### ✨ 优化后")
-        right_selected = st.selectbox(
-            "选择Prompt",
-            [""] + prompt_names,
-            key="right_prompt_select"
-        )
+            with col_left_config:
+                st.markdown("#### 📝 优化前")
+                version_options = [f"{v.version} ({v.comment or 'No comment'})" for v in versions]
+                left_version_idx = st.selectbox(
+                    "选择版本",
+                    range(len(versions)),
+                    format_func=lambda i: version_options[i],
+                    key="left_version_select"
+                )
 
-        if right_selected:
-            st.session_state.right_prompt_name = right_selected
-            right_prompt = prompt_service.get_prompt_details(right_selected)
-            if right_prompt:
-                st.caption(f"版本: {right_prompt.version}")
+                if left_version_idx is not None:
+                    st.session_state.left_prompt_version = versions[left_version_idx].version
+                    st.caption(f"创建时间: {versions[left_version_idx].created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                    st.caption(f"创建者: {versions[left_version_idx].created_by}")
 
-        with st.expander("模型设置", expanded=False):
-            st.session_state.right_model_name = st.text_input(
-                "模型名称",
-                value=st.session_state.right_model_name,
-                key="right_model"
-            )
-            st.session_state.right_temperature = st.slider(
-                "Temperature",
-                0.0, 2.0,
-                st.session_state.right_temperature,
-                0.1,
-                key="right_temp"
-            )
+                with st.expander("模型设置", expanded=False):
+                    st.session_state.left_model_name = st.text_input(
+                        "模型名称",
+                        value=st.session_state.left_model_name,
+                        key="left_model"
+                    )
+                    st.session_state.left_temperature = st.slider(
+                        "Temperature",
+                        0.0, 2.0,
+                        st.session_state.left_temperature,
+                        0.1,
+                        key="left_temp"
+                    )
+
+            with col_right_config:
+                st.markdown("#### ✨ 优化后")
+                right_version_idx = st.selectbox(
+                    "选择版本",
+                    range(len(versions)),
+                    format_func=lambda i: version_options[i],
+                    key="right_version_select",
+                    index=1 if len(versions) > 1 else 0
+                )
+
+                if right_version_idx is not None:
+                    st.session_state.right_prompt_version = versions[right_version_idx].version
+                    st.caption(f"创建时间: {versions[right_version_idx].created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                    st.caption(f"创建者: {versions[right_version_idx].created_by}")
+
+                with st.expander("模型设置", expanded=False):
+                    st.session_state.right_model_name = st.text_input(
+                        "模型名称",
+                        value=st.session_state.right_model_name,
+                        key="right_model"
+                    )
+                    st.session_state.right_temperature = st.slider(
+                        "Temperature",
+                        0.0, 2.0,
+                        st.session_state.right_temperature,
+                        0.1,
+                        key="right_temp"
+                    )
 
     st.divider()
 
     # ==================== 变量输入区 ====================
-    if st.session_state.left_prompt_name and st.session_state.right_prompt_name:
-        left_prompt = prompt_service.get_prompt_details(st.session_state.left_prompt_name)
-        right_prompt = prompt_service.get_prompt_details(st.session_state.right_prompt_name)
+    if (st.session_state.selected_prompt_name and
+        st.session_state.left_prompt_version and
+        st.session_state.right_prompt_version):
+
+        left_prompt = prompt_service.get_prompt_details(
+            st.session_state.selected_prompt_name,
+            st.session_state.left_prompt_version
+        )
+        right_prompt = prompt_service.get_prompt_details(
+            st.session_state.selected_prompt_name,
+            st.session_state.right_prompt_version
+        )
 
         if left_prompt and right_prompt:
             # 合并变量元数据
@@ -353,12 +384,15 @@ try:
                                 right_prompt.variables_meta.get("properties", {}) if isinstance(right_prompt.variables_meta, dict) else {}
                             )
 
-                            st.session_state.left_rendered_prompt = render_service.render(
-                                st.session_state.left_prompt_name,
+                            # 使用 name + version 来渲染
+                            st.session_state.left_rendered_prompt = render_service.render_by_version(
+                                st.session_state.selected_prompt_name,
+                                st.session_state.left_prompt_version,
                                 left_vars
                             )
-                            st.session_state.right_rendered_prompt = render_service.render(
-                                st.session_state.right_prompt_name,
+                            st.session_state.right_rendered_prompt = render_service.render_by_version(
+                                st.session_state.selected_prompt_name,
+                                st.session_state.right_prompt_version,
                                 right_vars
                             )
                             st.success("变量已更新，系统提示词已渲染")
@@ -486,9 +520,9 @@ try:
                                 if st.session_state.right_chat_history and st.session_state.right_chat_history[-1]["role"] == "user":
                                     st.session_state.right_chat_history.pop()
         else:
-            st.error("无法加载选中的Prompt")
+            st.error("无法加载选中的Prompt版本")
     else:
-        st.info("👆 请先在上方选择要对比的两个Prompt")
+        st.info("👆 请先在上方选择要对比的提示词及其版本")
 
 finally:
     prompt_service.db.close()
